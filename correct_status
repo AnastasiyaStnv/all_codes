@@ -1,0 +1,59 @@
+function CorrectStatus() {
+  const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  const activeSheet = spreadsheet.getActiveSheet();
+  const pattern = /^\(\d+\)_/;
+
+  // Проверяем значение ячейки A1 активной вкладки
+  const cellA1Value = activeSheet.getRange("A1").getValue();
+  if (cellA1Value === "#N/A") {
+    SpreadsheetApp.getUi().alert("Ошибка: значение ячейки A1 равно #N/A. Выполнение функции прервано.");
+    return; // Прерываем выполнение функции
+  }
+
+  // Лист со списком коллизий, которые нужно исправить
+  const sourceSheet = spreadsheet.getSheetByName("Navis_Исправленные");
+
+  // Получаем все листы и фильтруем по паттерну
+  const sheets = spreadsheet.getSheets().filter(sheet => pattern.test(sheet.getName()));
+
+  // Столбец, откуда берем список значений (например, A)
+  const sourceColumnIndex = 1; // A = 1, B = 2, и т.д.
+  const sourceValues = sourceSheet
+    .getRange(1, sourceColumnIndex, sourceSheet.getLastRow(), 1)
+    .getValues()
+    .flat()
+    .filter(value => value); // Исключаем пустые значения
+
+  // Столбец, в котором будем искать значения
+  const searchColumnIndex = 3;
+
+  // Столбец, где будем изменять значения
+  const targetColumnIndex = 8;
+
+  // Обрабатываем каждый лист
+  sheets.forEach(sheetName => {
+    const sheet = spreadsheet.getSheetByName(sheetName);
+    if (!sheet) return; // Если лист не найден, пропускаем его
+
+    const data = sheet.getDataRange().getValues();
+    const columnData = data.map(row => row[searchColumnIndex - 1]);
+
+    // Создаем объект с индексами строк для быстрого поиска
+    const valueIndexes = new Set(columnData); // Для быстрого поиска, избегаем циклов
+
+    // Ищем и обновляем значения
+    sourceValues.forEach(searchValue => {
+      if (valueIndexes.has(searchValue)) {
+        // Находим строку, соответствующую значению
+        const rowIndex = columnData.indexOf(searchValue);
+        sheet.getRange(rowIndex + 1, targetColumnIndex).setValue("Исправлено ");
+
+        // Удаляем значение из valueIndexes, чтобы не искать его повторно
+        valueIndexes.delete(searchValue);
+
+        // Переходим к следующему значению, так как текущие обновления завершены
+        return;
+      }
+    });
+  });
+}
