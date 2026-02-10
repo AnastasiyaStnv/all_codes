@@ -1,0 +1,55 @@
+function processColumnsHAndK() {
+  const pattern = /^\(\d+\)_/;
+
+  // Получаем активную книгу
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+
+  // Получаем все листы и фильтруем по паттерну
+  const sheets = spreadsheet.getSheets().filter(sheet => pattern.test(sheet.getName()));
+  
+  // Проверяем, найдены ли листы
+  if (sheets.length === 0) {
+    SpreadsheetApp.getUi().alert("Не найдено листов, соответствующих паттерну!");
+    return;
+  }
+  
+  // Получаем текущую дату
+  var currentDate = new Date();
+  // Форматируем дату в дд.мм.гг
+  var formattedDate = Utilities.formatDate(currentDate, Session.getScriptTimeZone(), "dd.MM.yy");
+  
+  // Проходим по каждому листу
+  sheets.forEach(function(sheet) {
+    // Проверяем, существует ли лист
+    if (!sheet) {
+      SpreadsheetApp.getUi().alert("Лист не найден!");
+      return;
+    }
+    
+    // Получаем данные из столбцов H и K
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) return; // Пропускаем лист, если он пустой или содержит только заголовок
+    
+    var rangeH = sheet.getRange("H2:H" + lastRow).getValues();
+    var rangeK = sheet.getRange("K2:K" + lastRow).getValues();
+    
+    // Проходим по строкам
+    for (var i = 0; i < rangeH.length; i++) {
+      var hValue = rangeH[i][0];
+      var kValue = rangeK[i][0];
+      
+      // Правило 1: H = "Исправлено" и K пустой → записываем текущую дату в формате дд.мм.гг
+      if (hValue === "Исправлено " && kValue === "") {
+        sheet.getRange(i + 2, 11).setValue(formattedDate);
+      }
+      // Правило 2: H = "Ждет устранения" и K содержит дату → удаляем дату
+      else if (hValue === "Ждет устранения" && kValue instanceof Date) {
+        sheet.getRange(i + 2, 11).clearContent();
+      }
+      // Правило 3: Все остальные случаи → пропускаем
+      else {
+        continue;
+      }
+    }
+  });
+}
